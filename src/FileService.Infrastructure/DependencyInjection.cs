@@ -9,9 +9,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? configuration["ConnectionStrings:DefaultConnection"]
-            ?? throw new InvalidOperationException("Missing connection string. Set ConnectionStrings__DefaultConnection in .env or appsettings.");
+        var connectionString = ConnectionStringResolver.Resolve(configuration);
 
         services.AddDbContext<FileServiceDbContext>(options =>
             options.UseNpgsql(connectionString, npgsqlOptions =>
