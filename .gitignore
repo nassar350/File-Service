@@ -1,0 +1,55 @@
+# .NET build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Rider
+.idea/
+*.sln.iml
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# npm/node (for email-service)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Docker
+**/docker-compose.override.yml
+**/docker-compose.*.yml
+
+# Python (if any)
+__pycache__/
+*.pyc
+
+# Test results
+TestResults/
+*.coverage
+*.coveragejson
+
+# Others
+.env
+.env.*
+*.db
+*.sqlite
+*.pdb
+*.swp
+*.bak
+*.tmp
+*.local.settings.json
+
+# Ignore generated migrations (optional)
+#migrations/

@@ -1,0 +1,56 @@
+erDiagram
+
+    FILES {
+        uuid id PK
+
+        uuid tenant_id
+        uuid owner_id
+
+        varchar purpose
+        varchar entity_type
+        uuid entity_id
+
+        varchar provider
+        varchar provider_key
+        varchar storage_region
+
+        varchar original_filename
+        varchar mime_type
+
+        bigint size
+        varchar checksum
+
+        varchar status
+
+        timestamptz staging_expires_at
+        timestamptz committed_at
+        timestamptz deleted_at
+
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    FILE_EVENTS {
+        uuid id PK
+        uuid file_id FK
+
+        varchar event_type
+        jsonb metadata
+
+        timestamptz created_at
+    }
+
+    FILE_CLEANUP_LOGS {
+        uuid id PK
+        uuid file_id FK
+
+        varchar action
+        varchar status
+
+        text message
+
+        timestamptz created_at
+    }
+
+    FILES ||--o{ FILE_EVENTS : has
+    FILES ||--o{ FILE_CLEANUP_LOGS : generates
