@@ -50,7 +50,7 @@ public sealed class FileWorkflowController : ControllerBase
         }
 
         var file = await service.StageUploadAsync(request, cancellationToken);
-        return Ok(file);
+        return Ok(FileWorkflowResponse.From(file));
     }
 
     [HttpPost("{fileId:guid}/commit")]
@@ -73,7 +73,7 @@ public sealed class FileWorkflowController : ControllerBase
         }
 
         var file = await service.CommitUploadAsync(request, cancellationToken);
-        return Ok(file);
+        return Ok(FileWorkflowResponse.From(file));
     }
 
     [HttpPost("{fileId:guid}/replace")]
@@ -110,7 +110,7 @@ public sealed class FileWorkflowController : ControllerBase
         }
 
         var file = await service.ReplaceUploadAsync(request, cancellationToken);
-        return Ok(file);
+        return Ok(FileWorkflowResponse.From(file));
     }
 
     [HttpPost("{fileId:guid}/abort")]
@@ -130,7 +130,7 @@ public sealed class FileWorkflowController : ControllerBase
         CancellationToken cancellationToken)
     {
         var file = await service.GetByIdAsync(fileId, cancellationToken);
-        return file is null ? NotFound() : Ok(file);
+        return file is null ? NotFound() : Ok(FileWorkflowResponse.From(file));
     }
 
     [HttpDelete("/v1/files/{fileId:guid}")]
