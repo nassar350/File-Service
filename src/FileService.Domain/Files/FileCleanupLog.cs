@@ -1,4 +1,5 @@
 using FileService.Domain.Enums;
+using System.Text.Json.Serialization;
 
 namespace FileService.Domain.Files;
 
@@ -8,6 +9,7 @@ public sealed class FileCleanupLog
 
     public Guid FileId { get; set; }
 
+    [JsonIgnore]
     public FileRecord File { get; set; } = null!;
 
     public string Action { get; set; } = string.Empty;
