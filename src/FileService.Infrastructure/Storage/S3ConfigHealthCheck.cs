@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using FileService.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 
 namespace FileService.Infrastructure.Storage;

@@ -2,6 +2,7 @@ using FileService.Application.Abstractions.Repositories;
 using FileService.Application.Abstractions.Services;
 using FileService.Application.Abstractions.Storage;
 using FileService.Application.Models;
+using FileService.Application.Options;
 using FileService.Domain.Enums;
 using FileService.Domain.Files;
 using Microsoft.Extensions.Options;
@@ -102,9 +103,10 @@ public sealed class FileWorkflowService : IFileWorkflowService
         }
 
         var storageProvider = _storageResolver.Resolve(file.Provider);
+        var destinationFolder = BuildCommitDestinationFolder(file, request.DestinationFolder);
         var promotion = await storageProvider.PromoteAsync(
             file.ProviderKey,
-            request.DestinationFolder,
+            destinationFolder,
             cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
@@ -333,5 +335,26 @@ public sealed class FileWorkflowService : IFileWorkflowService
         };
 
         return _fileCleanupLogRepository.AddAsync(log, cancellationToken);
+    }
+
+    private static string BuildCommitDestinationFolder(FileRecord file, string? destinationFolder)
+    {
+        var segments = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(destinationFolder))
+        {
+            segments.Add(NormalizeFolderSegment(destinationFolder));
+        }
+
+        segments.Add(NormalizeFolderSegment(file.EntityType));
+        segments.Add(NormalizeFolderSegment(file.Purpose));
+        segments.Add(file.EntityId.ToString());
+
+        return string.Join("/", segments);
+    }
+
+    private static string NormalizeFolderSegment(string value)
+    {
+        return value.Trim().Trim('/');
     }
 }

@@ -4,6 +4,7 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using FileService.Application.Abstractions.Storage;
 using FileService.Domain.Enums;
+using FileService.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 
 namespace FileService.Infrastructure.Storage;
