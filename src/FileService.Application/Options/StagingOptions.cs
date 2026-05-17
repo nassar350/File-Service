@@ -1,4 +1,4 @@
-namespace FileService.Application.Abstractions.Storage;
+namespace FileService.Application.Options;
 
 public sealed class StagingOptions
 {

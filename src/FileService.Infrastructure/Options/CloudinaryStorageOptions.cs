@@ -1,4 +1,4 @@
-namespace FileService.Infrastructure.Storage;
+namespace FileService.Infrastructure.Options;
 
 public sealed class CloudinaryStorageOptions
 {

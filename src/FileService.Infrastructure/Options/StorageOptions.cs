@@ -1,6 +1,6 @@
 using FileService.Domain.Enums;
 
-namespace FileService.Application.Abstractions.Storage;
+namespace FileService.Infrastructure.Options;
 
 public sealed class StorageOptions
 {
