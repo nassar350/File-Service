@@ -1,33 +1,154 @@
 # File Service
 
-This service provides a staged file upload flow backed by Cloudinary. Clients upload directly to Cloudinary using a signed request, then commit the upload to make it an active file record. If a user changes their mind before commit, they can replace or abort the staging session and the staged asset is deleted.
+File Service manages the full lifecycle of uploaded files. It supports staged uploads, commit/replace/abort actions, storage-provider promotion, and background cleanup of expired staged files.
 
-## Staged Upload Flow
+The service stores only the important file summary in its HTTP responses. It intentionally avoids returning the full domain graph so clients do not receive internal metadata collections or circular navigation data.
 
-1. `POST /v1/uploads/sessions` -> returns a staging `public_id` and a signature for direct upload.
-2. Client uploads to Cloudinary using the returned parameters.
-3. `POST /v1/uploads/sessions/{sessionId}/commit` -> promotes the staged asset and creates a file record.
-4. `POST /v1/uploads/sessions/{sessionId}/replace` -> aborts the old session and creates a new staging session.
-5. `POST /v1/uploads/sessions/{sessionId}/abort` -> deletes the staged asset.
+## What This Service Does
+
+- Accepts an uploaded file and stages it in object storage.
+- Creates a durable file record with status tracking.
+- Commits a staged file into its final storage location.
+- Replaces or aborts a staged file when the user changes their mind.
+- Deletes expired staged files automatically through Hangfire.
+- Supports multiple storage backends through a provider abstraction.
+
+## File Lifecycle
+
+### 1. Stage a file
+
+`POST /v1/uploads/sessions`
+
+The client sends the binary file plus the file context:
+
+- `tenantId`
+- `ownerId`
+- `purpose`
+- `entityType`
+- `entityId`
+- `metadata`
+- `provider` (optional)
+- `stagingTtlMinutes` (optional)
+
+The service uploads the file into the configured staging folder, creates a `FileRecord`, and stores a `FileEvent` with the `Staged` event type.
+
+### 2. Commit a file
+
+`POST /v1/uploads/sessions/{fileId}/commit`
+
+Commit promotes the staged object to its final storage path and updates the file status to `Committed`.
+
+If the request does not provide a `destinationFolder`, the service uses a default path suffix built from the file context:
+
+`/{entityType}/{purpose}/{entityId}`
+
+If a `destinationFolder` is provided, it is treated as the base folder and the same suffix is appended to it.
+
+### 3. Replace a staged file
+
+`POST /v1/uploads/sessions/{fileId}/replace`
+
+Replace deletes the current staged object, marks the old file record as deleted, and creates a new staged file record using the same business context.
+
+### 4. Abort a staged file
+
+`POST /v1/uploads/sessions/{fileId}/abort`
+
+Abort deletes the staged object, marks the file as deleted, and records the operation as an event.
+
+### 5. Get or delete a file
+
+`GET /v1/files/{fileId}`
+
+Returns the trimmed file summary for the requested file.
+
+`DELETE /v1/files/{fileId}`
+
+Deletes the file and records the operation.
+
+## Storage Behavior
+
+The service uses a storage-provider abstraction so the same workflow can target different backends.
+
+Supported providers in the codebase:
+
+- `Cloudinary`
+- `AmazonS3`
+
+The default provider is configured through `Storage__DefaultProvider`.
+
+Each provider keeps two folders by default:
+
+- `staging`
+- `files`
+
+Staging uploads go to the staging folder first. Commit promotes the object into the final folder path. The final path is what gets persisted in `ProviderKey`.
+
+## Cleanup of Expired Staged Files
+
+Staged files have a TTL controlled by `Staging__TtlMinutes`.
+
+- Default TTL: `15` minutes
+- Cleanup schedule: once per day via Hangfire
+
+This means a staged file is eligible for cleanup when its TTL expires, but actual deletion happens on the next scheduled cleanup run.
+
+## Response Shape
+
+API responses return a trimmed file summary. They include the file identity and storage details, but not:
+
+- `metadata`
+- `events`
+- `cleanupLogs`
+
+This keeps the API payload small and avoids exposing internal navigation data.
 
 ## Configuration
 
-Set these environment variables or `appsettings.json` values:
+Configure the service with environment variables or `appsettings.json`.
 
-- `Cloudinary__CloudName`
-- `Cloudinary__ApiKey`
-- `Cloudinary__ApiSecret`
-- `Cloudinary__UploadPreset` (optional)
-- `Staging__Folder` (default: `staging`)
-- `Staging__TtlMinutes` (default: 30)
-- `FileService__PublicFolder` (default: `files`)
+### Storage
 
-## Headers
+- `Storage__DefaultProvider` - default storage provider
 
-Use these headers to associate a user with an upload session:
+### Cloudinary
 
-- `X-User-Id` (required for ownership)
+- `Storage__Cloudinary__CloudName`
+- `Storage__Cloudinary__ApiKey`
+- `Storage__Cloudinary__ApiSecret`
+- `Storage__Cloudinary__UploadPreset` - optional
+- `Storage__Cloudinary__StagingFolder` - default: `staging`
+- `Storage__Cloudinary__PublicFolder` - default: `files`
 
-## Notes
+### Amazon S3
 
-This implementation uses in-memory stores. Replace with a database-backed store for production.
+- `Storage__S3__BucketName`
+- `Storage__S3__Region` - optional
+- `Storage__S3__AccessKey` - optional
+- `Storage__S3__SecretKey` - optional
+- `Storage__S3__ServiceUrl` - optional
+- `Storage__S3__ForcePathStyle` - default: `false`
+- `Storage__S3__StagingFolder` - default: `staging`
+- `Storage__S3__PublicFolder` - default: `files`
+
+### Staging
+
+- `Staging__TtlMinutes` - default: `15`
+
+## API Documentation
+
+See [docs/api-examples.md](docs/api-examples.md) for request and response examples.
+
+## Runtime Behavior
+
+- Swagger is enabled in development.
+- Controllers are exposed through ASP.NET Core MVC.
+- Health checks are available at `/health`.
+- Hangfire runs the cleanup worker in the background.
+
+## Operational Notes
+
+- Staged files are not permanent until commit succeeds.
+- The service records file lifecycle events in the database.
+- Responses are intentionally limited to the public file summary.
+- The storage backend can be switched without changing the API contract.
