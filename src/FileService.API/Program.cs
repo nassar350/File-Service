@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using DotNetEnv;
+using FileService.API.Middleware;
 using FileService.Application;
 using FileService.Infrastructure;
 
@@ -26,6 +27,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<ServiceAuthMiddleware>();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
