@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\\..\\src\\FileService.API\\FileService.API.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>
 
