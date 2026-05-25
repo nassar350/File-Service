@@ -129,6 +129,11 @@ namespace FileService.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("entity_id");
 
+                    b.Property<bool>("IsPrivate")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_private")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("EntityType")
                         .IsRequired()
                         .HasColumnType("varchar")

@@ -42,6 +42,12 @@ public sealed class FileRecordConfiguration : IEntityTypeConfiguration<FileRecor
             .HasColumnType("uuid")
             .IsRequired();
 
+        builder.Property(file => file.IsPrivate)
+            .HasColumnName("is_private")
+            .HasColumnType("boolean")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(file => file.Provider)
             .HasColumnName("provider")
             .HasColumnType("varchar")

@@ -17,6 +17,8 @@ public sealed class FileRecord
 
     public Guid EntityId { get; set; }
 
+    public bool IsPrivate { get; set; }
+
     public FileProvider Provider { get; set; }
 
     public string ProviderKey { get; set; } = string.Empty;
