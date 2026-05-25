@@ -17,5 +17,7 @@ public interface IFileWorkflowService
 
     Task<FileRecord?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<Uri> GetDownloadUrlAsync(FileRecord file, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<FileRecord>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
 }

@@ -19,7 +19,8 @@ public sealed record StageUploadRequest(
 public sealed record CommitUploadRequest(
     Guid FileId,
     string? DestinationFolder = null,
-    Guid? ReplacesFileId = null);
+    Guid? ReplacesFileId = null,
+    bool IsPrivate = false);
 
 public sealed record ReplaceUploadRequest(
     Guid FileId,
