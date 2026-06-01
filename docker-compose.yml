@@ -60,7 +60,6 @@ services:
 volumes:
   file-service-data:
   pg_data:
-  redis_data:
 
 profiles:
   tools: {}
