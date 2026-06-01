@@ -1,0 +1,65 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# IDE files
+.vscode
+.vs
+.idea
+*.swp
+*.swo
+*~
+
+# Build outputs
+bin
+obj
+dist
+build
+*.dll
+*.exe
+*.so
+*.dylib
+
+# Node modules (if any)
+node_modules
+npm-debug.log
+
+# Package manager cache
+.npm
+.nuget
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Test artifacts
+coverage
+.coverage
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Misc
+README.md
+LICENSE
+*.md
+.editorconfig
+.config
+prod
+
+# Tests
+tests
