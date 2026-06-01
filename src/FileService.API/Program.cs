@@ -30,16 +30,69 @@ builder.Services.AddControllers()
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("OpenCors", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+});
+
 if (app.Environment.IsDevelopment())
 {
-        app.UseSwagger();
-        app.UseSwaggerUI();
+    app.UseSwagger(options =>
+    {
+        options.PreSerializeFilters.Add((swagger, httpReq) =>
+        {
+            var prefix = httpReq.Headers["X-Forwarded-Prefix"].ToString();
+            var scheme = httpReq.Headers["X-Forwarded-Proto"].ToString();
+            var host = httpReq.Headers["X-Forwarded-Host"].ToString();
+
+            if (string.IsNullOrWhiteSpace(scheme))
+            {
+                scheme = httpReq.Scheme;
+            }
+
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                host = httpReq.Host.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(prefix) && !prefix.StartsWith('/'))
+            {
+                prefix = "/" + prefix;
+            }
+
+            swagger.Servers = new List<OpenApiServer>
+            {
+                new()
+                {
+                    Url = $"{scheme}://{host}{prefix}"
+                }
+            };
+        });
+    });
+
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.RoutePrefix = "swagger";
+    });
 }
 
 app.UseHttpsRedirection();
+app.UseCors("OpenCors");
 app.UseMiddleware<ServiceAuthMiddleware>();
 
 app.MapControllers();
