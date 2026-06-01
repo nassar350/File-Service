@@ -17,6 +17,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IFileStorageProviderResolver _storageResolver;
     private readonly StagingOptions _stagingOptions;
+    private readonly PrivateDownloadLinkOptions _privateDownloadLinkOptions;
 
     public FileWorkflowService(
         IFileRepository fileRepository,
@@ -24,7 +25,8 @@ public sealed class FileWorkflowService : IFileWorkflowService
         IFileCleanupLogRepository fileCleanupLogRepository,
         IUnitOfWork unitOfWork,
         IFileStorageProviderResolver storageResolver,
-        IOptions<StagingOptions> stagingOptions)
+        IOptions<StagingOptions> stagingOptions,
+        IOptions<PrivateDownloadLinkOptions> privateDownloadLinkOptions)
     {
         _fileRepository = fileRepository;
         _fileEventRepository = fileEventRepository;
@@ -32,6 +34,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
         _unitOfWork = unitOfWork;
         _storageResolver = storageResolver;
         _stagingOptions = stagingOptions.Value;
+        _privateDownloadLinkOptions = privateDownloadLinkOptions.Value;
     }
 
     public async Task<FileRecord> StageUploadAsync(
@@ -68,6 +71,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
             Size = uploadResult.Size,
             Checksum = uploadResult.Checksum ?? string.Empty,
             Metadata = request.Metadata,
+            IsPrivate = false,
             Status = FileStatus.Staged,
             StagingExpiresAt = expiresAt,
             CreatedAt = now,
@@ -103,7 +107,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
         }
 
         var storageProvider = _storageResolver.Resolve(file.Provider);
-        var destinationFolder = BuildCommitDestinationFolder(file, request.DestinationFolder);
+        var destinationFolder = BuildCommitDestinationFolder(file, request.DestinationFolder, request.IsPrivate);
         var promotion = await storageProvider.PromoteAsync(
             file.ProviderKey,
             destinationFolder,
@@ -116,6 +120,8 @@ public sealed class FileWorkflowService : IFileWorkflowService
         {
             file.StorageRegion = promotion.StorageRegion;
         }
+
+        file.IsPrivate = request.IsPrivate;
 
         file.Status = FileStatus.Committed;
         file.CommittedAt = now;
@@ -197,6 +203,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
             Size = uploadResult.Size,
             Checksum = uploadResult.Checksum ?? string.Empty,
             Metadata = request.Metadata,
+            IsPrivate = false,
             Status = FileStatus.Staged,
             StagingExpiresAt = expiresAt,
             CreatedAt = now,
@@ -280,6 +287,18 @@ public sealed class FileWorkflowService : IFileWorkflowService
         return _fileRepository.GetByIdAsync(id, cancellationToken);
     }
 
+    public Task<Uri> GetDownloadUrlAsync(FileRecord file, CancellationToken cancellationToken = default)
+    {
+        var storageProvider = _storageResolver.Resolve(file.Provider);
+        TimeSpan? expiresIn = file.IsPrivate
+            ? TimeSpan.FromMinutes(_privateDownloadLinkOptions.PrivateDownloadUrlTtlMinutes > 0
+                ? _privateDownloadLinkOptions.PrivateDownloadUrlTtlMinutes
+                : 15)
+            : (TimeSpan?)null;
+
+        return storageProvider.GetDownloadUrlAsync(file.ProviderKey, file.IsPrivate, expiresIn, cancellationToken);
+    }
+
     public Task<IReadOnlyList<FileRecord>> GetByIdsAsync(
         IEnumerable<Guid> ids,
         CancellationToken cancellationToken = default)
@@ -337,9 +356,11 @@ public sealed class FileWorkflowService : IFileWorkflowService
         return _fileCleanupLogRepository.AddAsync(log, cancellationToken);
     }
 
-    private static string BuildCommitDestinationFolder(FileRecord file, string? destinationFolder)
+    private static string BuildCommitDestinationFolder(FileRecord file, string? destinationFolder, bool isPrivate)
     {
         var segments = new List<string>();
+
+        segments.Add(isPrivate ? "Private" : "Public");
 
         if (!string.IsNullOrWhiteSpace(destinationFolder))
         {

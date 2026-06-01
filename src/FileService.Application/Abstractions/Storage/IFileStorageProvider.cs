@@ -21,6 +21,7 @@ public interface IFileStorageProvider
 
     Task<Uri> GetDownloadUrlAsync(
         string providerKey,
+        bool isPrivate,
         TimeSpan? expiresIn = null,
         CancellationToken cancellationToken = default);
 }

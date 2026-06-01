@@ -8,6 +8,7 @@ public sealed record FileWorkflowResponse(
     string Purpose,
     string EntityType,
     Guid EntityId,
+    bool IsPrivate,
     FileProvider Provider,
     string ProviderKey,
     string StorageRegion,
@@ -20,15 +21,17 @@ public sealed record FileWorkflowResponse(
     DateTimeOffset? CommittedAt,
     DateTimeOffset? DeletedAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    Uri? FileLink)
 {
-    public static FileWorkflowResponse From(FileRecord file)
+    public static FileWorkflowResponse From(FileRecord file, Uri? fileLink = null)
     {
         return new FileWorkflowResponse(
             file.Id,
             file.Purpose,
             file.EntityType,
             file.EntityId,
+            file.IsPrivate,
             file.Provider,
             file.ProviderKey,
             file.StorageRegion,
@@ -41,6 +44,7 @@ public sealed record FileWorkflowResponse(
             file.CommittedAt,
             file.DeletedAt,
             file.CreatedAt,
-            file.UpdatedAt);
+            file.UpdatedAt,
+            fileLink);
     }
 }

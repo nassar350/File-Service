@@ -100,9 +100,15 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
 
     public Task<Uri> GetDownloadUrlAsync(
         string providerKey,
+        bool isPrivate,
         TimeSpan? expiresIn = null,
         CancellationToken cancellationToken = default)
     {
+        if (!isPrivate)
+        {
+            return Task.FromResult(BuildPublicUrl(providerKey));
+        }
+
         var expiry = DateTime.UtcNow.Add(expiresIn ?? TimeSpan.FromMinutes(15));
 
         var request = new GetPreSignedUrlRequest
@@ -153,6 +159,19 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         return string.IsNullOrWhiteSpace(normalized)
             ? uniqueName
             : $"{normalized}/{uniqueName}";
+    }
+
+    private Uri BuildPublicUrl(string providerKey)
+    {
+        if (string.IsNullOrWhiteSpace(_options.ServiceUrl))
+        {
+            throw new InvalidOperationException("Storage:S3:ServiceUrl is required to generate public download links.");
+        }
+
+        var baseUrl = _options.ServiceUrl.EndsWith('/') ? _options.ServiceUrl : _options.ServiceUrl + "/";
+        var normalizedProviderKey = providerKey.TrimStart('/');
+
+        return new Uri(new Uri(baseUrl, UriKind.Absolute), normalizedProviderKey);
     }
 
     private static string NormalizeFolder(string? folder)

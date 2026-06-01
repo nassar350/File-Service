@@ -64,7 +64,8 @@ public sealed class FileWorkflowController : ControllerBase
         var request = new CommitUploadRequest(
             fileId,
             body?.DestinationFolder,
-            body?.ReplacesFileId);
+            body?.ReplacesFileId,
+            body?.IsPrivate ?? false);
 
         var validation = await validator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
@@ -130,7 +131,13 @@ public sealed class FileWorkflowController : ControllerBase
         CancellationToken cancellationToken)
     {
         var file = await service.GetByIdAsync(fileId, cancellationToken);
-        return file is null ? NotFound() : Ok(FileWorkflowResponse.From(file));
+        if (file is null)
+        {
+            return NotFound();
+        }
+
+        var fileLink = await service.GetDownloadUrlAsync(file, cancellationToken);
+        return Ok(FileWorkflowResponse.From(file, fileLink));
     }
 
     [HttpDelete("/v1/files/{fileId:guid}")]
@@ -204,5 +211,6 @@ public sealed class FileWorkflowController : ControllerBase
 
     public sealed record CommitUploadBody(
         string? DestinationFolder,
-        Guid? ReplacesFileId);
+        Guid? ReplacesFileId,
+        bool IsPrivate = false);
 }

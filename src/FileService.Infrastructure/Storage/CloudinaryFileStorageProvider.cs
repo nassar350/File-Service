@@ -100,6 +100,7 @@ public sealed class CloudinaryFileStorageProvider : IFileStorageProvider
 
     public Task<Uri> GetDownloadUrlAsync(
         string providerKey,
+        bool isPrivate,
         TimeSpan? expiresIn = null,
         CancellationToken cancellationToken = default)
     {

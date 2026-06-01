@@ -43,6 +43,8 @@ public static class DependencyInjection
             configuration.GetSection(StorageOptions.SectionName));
         services.Configure<StagingOptions>(
             configuration.GetSection(StagingOptions.SectionName));
+        services.Configure<PrivateDownloadLinkOptions>(
+            configuration.GetSection(PrivateDownloadLinkOptions.SectionName));
         services.Configure<CloudinaryStorageOptions>(
             configuration.GetSection(CloudinaryStorageOptions.SectionName));
         services.Configure<S3StorageOptions>(

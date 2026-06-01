@@ -1,0 +1,72 @@
+services:
+  file-service:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    container_name: file-service
+    env_file:
+      - .env
+    environment:
+      Postgres_ConnectionString: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-file_service};Username=${POSTGRES_USER:-file_user};Password=${POSTGRES_PASSWORD:-file_pass}"
+      DOTNET_ENVIRONMENT: ${DOTNET_ENVIRONMENT:-Development}
+      Storage__DefaultProvider: ${STORAGE__DEFAULT_PROVIDER:-AmazonS3}
+    ports:
+      - "${FILE_SERVICE_PORT:-6000}:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+  
+  postgres:
+    image: postgres:16
+    container_name: file-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-file_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-file_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-file_service}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrator:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    profiles: ["tools"]
+    working_dir: /src
+    env_file:
+      - .env
+    environment:
+      Postgres_ConnectionString: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-file_service};Username=${POSTGRES_USER:-file_user};Password=${POSTGRES_PASSWORD:-file_pass}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./:/src
+    command: >
+      bash -lc "dotnet tool restore &&
+      dotnet build src/FileService.API/FileService.API.csproj -c Debug -v minimal &&
+      dotnet ef database update --no-build --verbose --project src/FileService.Infrastructure --startup-project src/FileService.API"
+
+volumes:
+  file-service-data:
+  pg_data:
+  redis_data:
+
+profiles:
+  tools: {}
+
+
+
+
+
+

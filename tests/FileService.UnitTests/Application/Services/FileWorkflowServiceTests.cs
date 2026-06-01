@@ -65,6 +65,8 @@ public sealed class FileWorkflowServiceTests
         Assert.Equal(file.Id, result.Id);
         Assert.Equal(FileStatus.Committed, result.Status);
         Assert.Equal(stagedProviderKey, storageProvider.LastPromoteStagedProviderKey);
+        Assert.Equal($"Public/{file.EntityType}/{file.Purpose}/{file.EntityId}", storageProvider.LastPromoteDestinationFolder);
+        Assert.False(result.IsPrivate);
         Assert.Null(result.StagingExpiresAt);
         Assert.Equal(result.CommittedAt, result.UpdatedAt);
         Assert.Equal("region-2", result.StorageRegion);
@@ -83,9 +85,9 @@ public sealed class FileWorkflowServiceTests
     {
         var file = CreateStagedFile(FileProvider.AmazonS3);
 
-        var destinationFolder = InvokeBuildCommitDestinationFolder(file, null);
+        var destinationFolder = InvokeBuildCommitDestinationFolder(file, null, false);
 
-        Assert.Equal($"{file.EntityType}/{file.Purpose}/{file.EntityId}", destinationFolder);
+        Assert.Equal($"Public/{file.EntityType}/{file.Purpose}/{file.EntityId}", destinationFolder);
     }
 
     [Fact]
@@ -93,9 +95,9 @@ public sealed class FileWorkflowServiceTests
     {
         var file = CreateStagedFile(FileProvider.AmazonS3);
 
-        var destinationFolder = InvokeBuildCommitDestinationFolder(file, "files");
+        var destinationFolder = InvokeBuildCommitDestinationFolder(file, "files", false);
 
-        Assert.Equal($"files/{file.EntityType}/{file.Purpose}/{file.EntityId}", destinationFolder);
+        Assert.Equal($"Public/files/{file.EntityType}/{file.Purpose}/{file.EntityId}", destinationFolder);
     }
 
     [Fact]
@@ -111,6 +113,7 @@ public sealed class FileWorkflowServiceTests
 
         Assert.Equal(FileStatus.Committed, result.Status);
         Assert.Equal(stagedProviderKey, storageProvider.LastPromoteStagedProviderKey);
+        Assert.Equal($"Public/files/{file.EntityType}/{file.Purpose}/{file.EntityId}", storageProvider.LastPromoteDestinationFolder);
         Assert.Null(result.StagingExpiresAt);
         Assert.Equal(result.CommittedAt, result.UpdatedAt);
         Assert.Equal("region-2", result.StorageRegion);
@@ -120,6 +123,59 @@ public sealed class FileWorkflowServiceTests
         Assert.Single(eventRepository.AddedEvents);
         Assert.Empty(cleanupRepository.AddedLogs);
         Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task CommitUploadAsync_UsesPrivatePrefixWhenRequested()
+    {
+        var storageProvider = new FakeFileStorageProvider(FileProvider.AmazonS3);
+        var (service, fileRepository, eventRepository, cleanupRepository, unitOfWork, resolver) = CreateSut(storageProvider);
+        var file = CreateStagedFile(storageProvider.Provider);
+        var stagedProviderKey = file.ProviderKey;
+        await fileRepository.AddAsync(file);
+
+        var result = await service.CommitUploadAsync(new CommitUploadRequest(file.Id, null, null, true));
+
+        Assert.True(result.IsPrivate);
+        Assert.Equal(stagedProviderKey, storageProvider.LastPromoteStagedProviderKey);
+        Assert.Equal($"Private/{file.EntityType}/{file.Purpose}/{file.EntityId}", storageProvider.LastPromoteDestinationFolder);
+        Assert.Equal(1, resolver.ResolveCallCount);
+        Assert.Equal(1, fileRepository.UpdateCallCount);
+        Assert.Single(eventRepository.AddedEvents);
+        Assert.Empty(cleanupRepository.AddedLogs);
+        Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task GetDownloadUrlAsync_UsesPublicUrlForPublicFiles()
+    {
+        var storageProvider = new FakeFileStorageProvider(FileProvider.AmazonS3);
+        var (service, fileRepository, _, _, _, _) = CreateSut(storageProvider);
+        var file = CreateStagedFile(storageProvider.Provider);
+        file.IsPrivate = false;
+        await fileRepository.AddAsync(file);
+
+        var url = await service.GetDownloadUrlAsync(file);
+
+        Assert.Equal(new Uri("https://example.com/download"), url);
+        Assert.False(storageProvider.LastDownloadIsPrivate);
+        Assert.Null(storageProvider.LastDownloadExpiresIn);
+    }
+
+    [Fact]
+    public async Task GetDownloadUrlAsync_UsesSignedUrlForPrivateFiles()
+    {
+        var storageProvider = new FakeFileStorageProvider(FileProvider.AmazonS3);
+        var (service, fileRepository, _, _, _, _) = CreateSut(storageProvider, stagingTtlMinutes: 99, privateDownloadTtlMinutes: 45);
+        var file = CreateStagedFile(storageProvider.Provider);
+        file.IsPrivate = true;
+        await fileRepository.AddAsync(file);
+
+        var url = await service.GetDownloadUrlAsync(file);
+
+        Assert.Equal(new Uri("https://example.com/download"), url);
+        Assert.True(storageProvider.LastDownloadIsPrivate);
+        Assert.Equal(TimeSpan.FromMinutes(45), storageProvider.LastDownloadExpiresIn);
     }
 
     private static FileRecord CreateStagedFile(FileProvider provider)
@@ -156,7 +212,8 @@ public sealed class FileWorkflowServiceTests
         FakeUnitOfWork UnitOfWork,
         FakeFileStorageProviderResolver Resolver) CreateSut(
         FakeFileStorageProvider storageProvider,
-        int stagingTtlMinutes = 15)
+        int stagingTtlMinutes = 15,
+        int privateDownloadTtlMinutes = 15)
     {
         var fileRepository = new FakeFileRepository();
         var fileEventRepository = new FakeFileEventRepository();
@@ -164,6 +221,10 @@ public sealed class FileWorkflowServiceTests
         var unitOfWork = new FakeUnitOfWork();
         var resolver = new FakeFileStorageProviderResolver(storageProvider);
         var stagingOptions = Options.Create(new StagingOptions { TtlMinutes = stagingTtlMinutes });
+        var privateDownloadLinkOptions = Options.Create(new PrivateDownloadLinkOptions
+        {
+            PrivateDownloadUrlTtlMinutes = privateDownloadTtlMinutes
+        });
 
         var service = new FileWorkflowService(
             fileRepository,
@@ -171,19 +232,20 @@ public sealed class FileWorkflowServiceTests
             cleanupLogRepository,
             unitOfWork,
             resolver,
-            stagingOptions);
+            stagingOptions,
+            privateDownloadLinkOptions);
 
         return (service, fileRepository, fileEventRepository, cleanupLogRepository, unitOfWork, resolver);
     }
 
-    private static string InvokeBuildCommitDestinationFolder(FileRecord file, string? destinationFolder)
+    private static string InvokeBuildCommitDestinationFolder(FileRecord file, string? destinationFolder, bool isPrivate)
     {
         var method = typeof(FileWorkflowService).GetMethod(
             "BuildCommitDestinationFolder",
             BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new InvalidOperationException("BuildCommitDestinationFolder was not found.");
 
-        return (string)method.Invoke(null, new object?[] { file, destinationFolder })!;
+        return (string)method.Invoke(null, new object?[] { file, destinationFolder, isPrivate })!;
     }
 
     private sealed class FakeFileRepository : IFileRepository
@@ -311,6 +373,10 @@ public sealed class FileWorkflowServiceTests
 
         public string? LastPromoteDestinationFolder { get; private set; }
 
+        public bool LastDownloadIsPrivate { get; private set; }
+
+        public TimeSpan? LastDownloadExpiresIn { get; private set; }
+
         public int DeleteCallCount { get; private set; }
 
         public Task<FileStorageUploadResult> UploadAsync(
@@ -351,9 +417,12 @@ public sealed class FileWorkflowServiceTests
 
         public Task<Uri> GetDownloadUrlAsync(
             string providerKey,
+            bool isPrivate,
             TimeSpan? expiresIn = null,
             CancellationToken cancellationToken = default)
         {
+            LastDownloadIsPrivate = isPrivate;
+            LastDownloadExpiresIn = expiresIn;
             return Task.FromResult(new Uri("https://example.com/download"));
         }
     }

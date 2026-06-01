@@ -38,6 +38,11 @@ The service uploads the file into the configured staging folder, creates a `File
 
 Commit promotes the staged object to its final storage path and updates the file status to `Committed`.
 
+The commit request accepts `isPrivate`:
+
+- `false` stores the file under `Public/`
+- `true` stores the file under `Private/`
+
 If the request does not provide a `destinationFolder`, the service uses a default path suffix built from the file context:
 
 `/{entityType}/{purpose}/{entityId}`
@@ -60,7 +65,10 @@ Abort deletes the staged object, marks the file as deleted, and records the oper
 
 `GET /v1/files/{fileId}`
 
-Returns the trimmed file summary for the requested file.
+Returns the trimmed file summary for the requested file, including `fileLink`.
+
+Public files return a direct link built from `Storage__S3__ServiceUrl` and the stored `providerKey`.
+Private files return a pre-signed URL that expires after the dedicated private download TTL.
 
 `DELETE /v1/files/{fileId}`
 
@@ -81,6 +89,8 @@ Each provider keeps two folders by default:
 
 - `staging`
 - `files`
+
+Committed files are now split into `Public/` and `Private/` paths based on the commit request.
 
 Staging uploads go to the staging folder first. Commit promotes the object into the final folder path. The final path is what gets persisted in `ProviderKey`.
 
@@ -130,6 +140,10 @@ Configure the service with environment variables or `appsettings.json`.
 - `Storage__S3__ForcePathStyle` - default: `false`
 - `Storage__S3__StagingFolder` - default: `staging`
 - `Storage__S3__PublicFolder` - default: `files`
+- `Storage__S3__PrivateDownloadUrlTtlMinutes` - default: `15`
+
+`Storage__S3__ServiceUrl` is used when building public file links.
+`Storage__S3__PrivateDownloadUrlTtlMinutes` controls the expiry for private download links.
 
 ### Staging
 
