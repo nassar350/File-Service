@@ -42,7 +42,7 @@ TestResults/
 
 # Others
 .env
-.env.*
+.env
 *.db
 *.sqlite
 *.pdb
