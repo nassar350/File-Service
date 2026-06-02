@@ -1,7 +1,7 @@
 # -------- Build stage --------
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
 
-WORKDIR /build
+WORKDIR /src
 
 # Copy solution and project files
 COPY ["FileService.sln", "./"]
