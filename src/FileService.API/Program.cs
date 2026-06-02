@@ -5,6 +5,7 @@ using FileService.Application;
 using FileService.Infrastructure;
 using FileService.API.Swagger;
 using Microsoft.OpenApi;
+using Microsoft.AspNetCore.HttpOverrides;
 
 Env.TraversePath().Load();
 
@@ -84,7 +85,6 @@ if (app.Environment.IsDevelopment())
         });
     });
 
-    app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.RoutePrefix = "swagger";
