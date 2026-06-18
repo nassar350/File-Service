@@ -119,7 +119,7 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         var request = new GetPreSignedUrlRequest
         {
             BucketName = _options.BucketName,
-            Key = ProviderKey,
+            Key = providerKey,
             Expires = expiry
         };
 
