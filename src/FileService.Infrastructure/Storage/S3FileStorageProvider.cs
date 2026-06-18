@@ -171,7 +171,9 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         var baseUrl = _options.ServiceUrl.EndsWith('/') ? _options.ServiceUrl : _options.ServiceUrl + "/";
         var normalizedProviderKey = providerKey.TrimStart('/');
 
-        return new Uri(new Uri(baseUrl, UriKind.Absolute), normalizedProviderKey);
+        var encodedKey = Uri.EscapeUriString(normalizedProviderKey);
+
+        return new Uri(new Uri(baseUrl, UriKind.Absolute), encodedKey);
     }
 
     private static string NormalizeFolder(string? folder)
