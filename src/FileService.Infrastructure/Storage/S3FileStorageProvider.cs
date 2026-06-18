@@ -59,17 +59,20 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         string? destinationFolder,
         CancellationToken cancellationToken = default)
     {
+        var sourceKey = NormalizeProviderKey(stagedProviderKey);
+        Console.WriteLine($"Promoting file from staged key: {stagedProviderKey}");
+        Console.WriteLine($"Promoting file from staged key: {sourceKey} to destination folder: {destinationFolder}");
         var targetFolder = string.IsNullOrWhiteSpace(destinationFolder)
             ? _options.PublicFolder
             : destinationFolder;
 
-        var fileName = stagedProviderKey.Split('/').Last();
+        var fileName = Path.GetFileName(sourceKey);
         var destinationKey = BuildKey(targetFolder, fileName);
 
         var copyRequest = new CopyObjectRequest
         {
             SourceBucket = _options.BucketName,
-            SourceKey = stagedProviderKey,
+            SourceKey = sourceKey,
             DestinationBucket = _options.BucketName,
             DestinationKey = destinationKey
         };
@@ -79,7 +82,7 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         var deleteRequest = new DeleteObjectRequest
         {
             BucketName = _options.BucketName,
-            Key = stagedProviderKey
+            Key = sourceKey
         };
 
         await _s3.DeleteObjectAsync(deleteRequest, cancellationToken);
@@ -89,10 +92,12 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
 
     public async Task DeleteAsync(string providerKey, CancellationToken cancellationToken = default)
     {
+        var normalizedProviderKey = NormalizeProviderKey(providerKey);
+
         var request = new DeleteObjectRequest
         {
             BucketName = _options.BucketName,
-            Key = providerKey
+            Key = normalizedProviderKey
         };
 
         await _s3.DeleteObjectAsync(request, cancellationToken);
@@ -106,7 +111,7 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
     {
         if (!isPrivate)
         {
-            return Task.FromResult(BuildPublicUrl(providerKey));
+            return Task.FromResult(BuildPublicUrl(NormalizeProviderKey(providerKey)));
         }
 
         var expiry = DateTime.UtcNow.Add(expiresIn ?? TimeSpan.FromMinutes(15));
@@ -114,7 +119,7 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         var request = new GetPreSignedUrlRequest
         {
             BucketName = _options.BucketName,
-            Key = providerKey,
+            Key = ProviderKey,
             Expires = expiry
         };
 
@@ -170,8 +175,20 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
 
         var baseUrl = _options.ServiceUrl.EndsWith('/') ? _options.ServiceUrl : _options.ServiceUrl + "/";
         var normalizedProviderKey = providerKey.TrimStart('/');
+        var keyPath = _options.ForcePathStyle
+            ? $"{_options.BucketName.Trim('/')}/{normalizedProviderKey}"
+            : normalizedProviderKey;
 
-        var encodedKey = Uri.EscapeUriString(normalizedProviderKey);
+        var directory = Path.GetDirectoryName(keyPath)?
+        .Replace('\\', '/');
+
+        var fileName = Path.GetFileName(keyPath);
+
+        var encodedFileName = Uri.EscapeDataString(fileName);
+
+        var encodedKey = string.IsNullOrEmpty(directory)
+            ? encodedFileName
+            : $"{directory}/{encodedFileName}";
 
         return new Uri(new Uri(baseUrl, UriKind.Absolute), encodedKey);
     }
@@ -184,5 +201,52 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         }
 
         return folder.Trim().Trim('/');
+    }
+
+    private string NormalizeProviderKey(string providerKey)
+    {
+        // if (Uri.TryCreate(providerKey, UriKind.Absolute, out var uri)
+        //     && (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+        //         || uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+        //         || uri.Scheme.Equals("s3", StringComparison.OrdinalIgnoreCase)))
+        // {
+        //     return TrimBucketPrefix(Uri.UnescapeDataString(uri.AbsolutePath).TrimStart('/'));
+        // }
+
+        // return TrimBucketPrefix(providerKey.Trim().TrimStart('/'));
+
+        var bucketPrefix = _options.BucketName.Trim('/');
+
+        if (!string.IsNullOrWhiteSpace(bucketPrefix) && providerKey.StartsWith(bucketPrefix + "/", StringComparison.Ordinal))
+        {
+            return providerKey;
+        }
+
+        if (!string.IsNullOrWhiteSpace(bucketPrefix))
+        {
+            return $"{bucketPrefix}/{providerKey.Trim().TrimStart('/')}";
+        }
+
+        return providerKey;
+    }
+
+    private string TrimBucketPrefix(string key)
+    {
+        var bucketPrefix = _options.BucketName.Trim('/');
+        if (string.IsNullOrWhiteSpace(bucketPrefix))
+        {
+            return key;
+        }
+
+        if (key.Equals(bucketPrefix, StringComparison.Ordinal))
+        {
+            return string.Empty;
+        }
+
+        var prefixed = bucketPrefix + "/";
+        Console.WriteLine($"Trimming bucket prefix: '{bucketPrefix}' from key: '{key} >> {prefixed}'");
+        return key.StartsWith(prefixed, StringComparison.Ordinal)
+            ? key[prefixed.Length..]
+            : key;
     }
 }
