@@ -205,16 +205,6 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
 
     private string NormalizeProviderKey(string providerKey)
     {
-        // if (Uri.TryCreate(providerKey, UriKind.Absolute, out var uri)
-        //     && (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
-        //         || uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-        //         || uri.Scheme.Equals("s3", StringComparison.OrdinalIgnoreCase)))
-        // {
-        //     return TrimBucketPrefix(Uri.UnescapeDataString(uri.AbsolutePath).TrimStart('/'));
-        // }
-
-        // return TrimBucketPrefix(providerKey.Trim().TrimStart('/'));
-
         var bucketPrefix = _options.BucketName.Trim('/');
 
         if (!string.IsNullOrWhiteSpace(bucketPrefix) && providerKey.StartsWith(bucketPrefix + "/", StringComparison.Ordinal))
