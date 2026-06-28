@@ -60,8 +60,8 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         CancellationToken cancellationToken = default)
     {
         var sourceKey = NormalizeProviderKey(stagedProviderKey);
-        Console.WriteLine($"Promoting file from staged key: {stagedProviderKey}");
-        Console.WriteLine($"Promoting file from staged key: {sourceKey} to destination folder: {destinationFolder}");
+        // Console.WriteLine($"Promoting file from staged key: {stagedProviderKey}");
+        // Console.WriteLine($"Promoting file from staged key: {sourceKey} to destination folder: {destinationFolder}");
         var targetFolder = string.IsNullOrWhiteSpace(destinationFolder)
             ? _options.PublicFolder
             : destinationFolder;

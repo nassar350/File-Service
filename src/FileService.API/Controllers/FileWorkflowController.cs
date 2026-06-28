@@ -131,7 +131,7 @@ public sealed class FileWorkflowController : ControllerBase
         CancellationToken cancellationToken)
     {
         var file = await service.GetByIdAsync(fileId, cancellationToken);
-        if (file is null)
+        if (file is null || file.Status == FileStatus.Deleted)
         {
             return NotFound();
         }
