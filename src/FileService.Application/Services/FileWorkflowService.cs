@@ -1,6 +1,7 @@
 using FileService.Application.Abstractions.Repositories;
 using FileService.Application.Abstractions.Services;
 using FileService.Application.Abstractions.Storage;
+using FileService.Application.Exceptions;
 using FileService.Application.Models;
 using FileService.Application.Options;
 using FileService.Domain.Enums;
@@ -99,7 +100,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
         CancellationToken cancellationToken = default)
     {
         var file = await _fileRepository.GetByIdAsync(request.FileId, cancellationToken)
-            ?? throw new InvalidOperationException("File not found.");
+            ?? throw new NotFoundException("File", request.FileId);
 
         if (file.Status != FileStatus.Staged)
         {
@@ -153,7 +154,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
         CancellationToken cancellationToken = default)
     {
         var existing = await _fileRepository.GetByIdAsync(request.FileId, cancellationToken)
-            ?? throw new InvalidOperationException("File not found.");
+            ?? throw new NotFoundException("File", request.FileId);
 
         if (existing.Status != FileStatus.Staged)
         {
@@ -228,7 +229,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
     public async Task AbortUploadAsync(Guid fileId, CancellationToken cancellationToken = default)
     {
         var file = await _fileRepository.GetByIdAsync(fileId, cancellationToken)
-            ?? throw new InvalidOperationException("File not found.");
+            ?? throw new NotFoundException("File", fileId);
 
         if (file.Status != FileStatus.Staged)
         {
@@ -259,7 +260,7 @@ public sealed class FileWorkflowService : IFileWorkflowService
     public async Task DeleteFileAsync(DeleteFileRequest request, CancellationToken cancellationToken = default)
     {
         var file = await _fileRepository.GetByIdAsync(request.FileId, cancellationToken)
-            ?? throw new InvalidOperationException("File not found.");
+            ?? throw new NotFoundException("File", request.FileId);
 
         var now = DateTimeOffset.UtcNow;
 

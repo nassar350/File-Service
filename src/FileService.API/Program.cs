@@ -93,6 +93,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("OpenCors");
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<ServiceAuthMiddleware>();
 
 app.MapControllers();
