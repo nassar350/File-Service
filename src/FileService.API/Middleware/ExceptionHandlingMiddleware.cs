@@ -22,7 +22,7 @@ public sealed class ExceptionHandlingMiddleware
         }
         catch (NotFoundException ex)
         {
-            _logger.LogWarning(ex, "Resource not found");
+            _logger.LogWarning(ex, "File not found");
             context.Response.StatusCode = (int)HttpStatusCode.NotFound;
             await context.Response.WriteAsJsonAsync(new { error = ex.Message });
         }
