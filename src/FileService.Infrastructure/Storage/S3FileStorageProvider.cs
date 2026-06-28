@@ -82,7 +82,7 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         var deleteRequest = new DeleteObjectRequest
         {
             BucketName = _options.BucketName,
-            Key = sourceKey
+            Key = stagedProviderKey
         };
 
         await _s3.DeleteObjectAsync(deleteRequest, cancellationToken);
@@ -97,7 +97,7 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
         var request = new DeleteObjectRequest
         {
             BucketName = _options.BucketName,
-            Key = normalizedProviderKey
+            Key = providerKey
         };
 
         await _s3.DeleteObjectAsync(request, cancellationToken);
