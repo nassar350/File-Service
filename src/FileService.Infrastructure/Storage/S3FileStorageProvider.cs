@@ -111,7 +111,7 @@ public sealed class S3FileStorageProvider : IFileStorageProvider
     {
         if (!isPrivate)
         {
-            return Task.FromResult(BuildPublicUrl(NormalizeProviderKey(providerKey)));
+            return Task.FromResult(BuildPublicUrl(providerKey));
         }
 
         var expiry = DateTime.UtcNow.Add(expiresIn ?? TimeSpan.FromMinutes(15));
